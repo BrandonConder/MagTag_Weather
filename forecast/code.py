@@ -10,6 +10,7 @@ import adafruit_imageload
 from adafruit_display_text import label
 from adafruit_magtag.magtag import MagTag
 from secrets import secrets
+from math import isnan
 
 # --| USER CONFIG |--------------------------
 METRIC = False  # set to True for metric units
@@ -38,6 +39,8 @@ MONTHS = (
     "December",
 )
 magtag = MagTag()
+NaN = float("NaN")
+inf = float("inf")
 
 # ----------------------------
 # Backgrounnd bitmap
@@ -106,7 +109,7 @@ def get_hourly_data(json_data):
     previous_date = datetime.tm_mday
     # Gather data throughout the days
     for data in json_data["list"]:
-        datetime = time.localtime(json_data["list"][0]["dt"] + timezone_offset)
+        datetime = time.localtime(data["dt"] + timezone_offset)
         date = datetime.tm_mday
         if date != previous_date:
             previous_date = date
@@ -114,6 +117,7 @@ def get_hourly_data(json_data):
             if day_number > 4:
                 break
         hour = datetime.tm_hour // 3
+        hourly_data[day_number][hour]["dt"] = data["dt"] + timezone_offset
         hourly_data[day_number][hour]["weather"] = data["weather"]
         hourly_data[day_number][hour]["temp"] = data["main"]["temp"]
         hourly_data[day_number][hour]["humidity"] = data["main"]["humidity"]
@@ -121,23 +125,38 @@ def get_hourly_data(json_data):
     return hourly_data
 
 
-def mode(list):
-    return max(set(list), key=list.count)
+def mode(mylist):
+    mylist = [li for li in mylist if li is not NaN]
+    return max(set(mylist), key=mylist.count)
 
 
 def get_daily_summary(hourly_data):
     # Get overview data from hourly data
     daily_data = [{} for d in range(5)]
     for dd in range(5):
-        daily_data[dd]["tmax"] = -inf
-        daily_data[dd]["tmin"] = inf
+        daily_data[dd]["temp"] = {
+            "max": -inf, 
+            "min": inf, 
+            "morn": NaN, 
+            "day": NaN, 
+            "night": NaN,}
+        daily_data[dd]["icon"] = ""
+        icon = [NaN for h in range(8)]
+        humidity = [NaN for h in range(8)]
+        wind_speed = [NaN for h in range(8)]
         for hh in range(8):
             data = hourly_data[dd][hh]
             if data:
-                daily_data[dd]["tmax"] = max(data["temp"],daily_data[dd]["tmax"])
-                daily_data[dd]["tmin"] = min(data["temp"],daily_data[dd]["tmax"])
+                daily_data[dd]["temp"]["max"] = max(data["temp"],daily_data[dd]["temp"]["max"])
+                daily_data[dd]["temp"]["min"] = min(data["temp"],daily_data[dd]["temp"]["min"])
                 icon[hh] = data["weather"][0]["icon"][:2]
-
+                humidity[hh] = data["humidity"]
+                wind_speed[hh] = data["wind_speed"]
+        daily_data[dd]["icon"] = mode(icon)
+        daily_data[dd]["humidity"] = mode(humidity)
+        daily_data[dd]["wind_speed"] = max([ws for ws in wind_speed if not isnan(ws)])
+        daily_data[dd]["dt"] = hourly_data[dd][5]["dt"]
+    return daily_data
 
 def get_forecast(location):
     """Use Forecast API to fetch weather data and return a "daily" forecast.
@@ -173,8 +192,9 @@ def get_forecast(location):
         raise RuntimeError("Unexpected forecast response length.")
     timezone_offset = json_data["city"]["timezone"]
     hourly_data = get_hourly_data(json_data)
-    daily_data = [{} for d in range(5)]
+    #daily_data = [{} for d in range(5)]
 
+    daily_data = get_daily_summary(hourly_data)
     # use the 12PM values from each day, access via direct indexing (slice)
     d_idx = 0
     for data in json_data["list"][3::8]:
