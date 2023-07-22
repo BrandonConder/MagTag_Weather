@@ -198,9 +198,8 @@ def get_forecast(location):
     # use the 12PM values from each day, access via direct indexing (slice)
     d_idx = 0
     for data in json_data["list"][3::8]:
-        daily_data[d_idx]["dt"] = data["dt"] + timezone_offset
         daily_data[d_idx]["weather"] = data["weather"]
-        daily_data[d_idx]["temp"] = {"day" : data["main"]["temp"]}
+        daily_data[d_idx]["temp"]["day"] = data["main"]["temp"]
         d_idx = d_idx + 1
         
     # add extra data for day 0 (current day)
@@ -211,8 +210,6 @@ def get_forecast(location):
         "day": json_data["list"][4]["main"]["temp"],
         "night": json_data["list"][6]["main"]["temp"],
     }
-    daily_data[0]["humidity"] = json_data["list"][3]["main"]["humidity"]
-    daily_data[0]["wind_speed"] = json_data["list"][3]["wind"]["speed"]
 
     return daily_data
 
@@ -237,6 +234,7 @@ def make_banner(x=0, y=0):
     day_temp = label.Label(terminalio.FONT, text="+100F", color=0x000000)
     day_temp.anchor_point = (0, 0.5)
     day_temp.anchored_position = (50, 10)
+    day_temp.line_spacing = 1.05
 
     group = displayio.Group(x=x, y=y)
     group.append(day_of_week)
@@ -264,7 +262,7 @@ def update_banner(banner, data):
     """Update supplied forecast banner with supplied data."""
     banner[0].text = DAYS[time.localtime(data["dt"]).tm_wday][:3].upper()
     banner[1][0] = ICON_MAP.index(data["weather"][0]["icon"][:2])
-    banner[2].text = temperature_text(data["temp"]["day"])
+    banner[2].text = temperature_text(data["temp"]["max"]) + "\n" + temperature_text(data["temp"]["min"])
 
 
 def update_today(data):
@@ -388,9 +386,9 @@ today_banner.append(today_sunset)
 
 future_banners = [
     make_banner(x=210, y=18),
-    make_banner(x=210, y=39),
-    make_banner(x=210, y=60),
-    make_banner(x=210, y=81),
+    make_banner(x=210, y=46),
+    make_banner(x=210, y=74),
+    make_banner(x=210, y=102),
 ]
 
 magtag.splash.append(today_banner)
