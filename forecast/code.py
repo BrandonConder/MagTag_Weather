@@ -10,7 +10,6 @@ import adafruit_imageload
 from adafruit_display_text import label
 from adafruit_magtag.magtag import MagTag
 from secrets import secrets
-from math import isnan
 
 # --| USER CONFIG |--------------------------
 METRIC = False  # set to True for metric units
@@ -125,9 +124,24 @@ def get_hourly_data(json_data):
     return hourly_data
 
 
-def mode(mylist):
+def nanmode(mylist):
     mylist = [li for li in mylist if li is not NaN]
     return max(set(mylist), key=mylist.count)
+
+
+def nanmean(mylist):
+    mylist = [li for li in mylist if li is not NaN]
+    return sum(mylist) / len(mylist)
+
+
+def nanmax(mylist):
+    mylist = [li for li in mylist if li is not NaN]
+    return max(mylist)
+
+
+def nanmin(mylist):
+    mylist = [li for li in mylist if li is not NaN]
+    return min(mylist)
 
 
 def get_daily_summary(hourly_data):
@@ -152,10 +166,10 @@ def get_daily_summary(hourly_data):
                 icon[hh] = data["weather"][0]["icon"][:2]
                 humidity[hh] = data["humidity"]
                 wind_speed[hh] = data["wind_speed"]
-        daily_data[dd]["icon"] = mode(icon)
-        daily_data[dd]["humidity"] = mode(humidity)
-        daily_data[dd]["wind_speed"] = max([ws for ws in wind_speed if not isnan(ws)])
-        daily_data[dd]["dt"] = hourly_data[dd][5]["dt"]
+                daily_data[dd]["dt"] = data["dt"]
+        daily_data[dd]["icon"] = nanmode(icon)
+        daily_data[dd]["humidity"] = round(nanmean(humidity))
+        daily_data[dd]["wind_speed"] = nanmax(wind_speed)
     return daily_data
 
 def get_forecast(location):
