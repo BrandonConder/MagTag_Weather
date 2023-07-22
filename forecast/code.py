@@ -97,6 +97,48 @@ def get_approx_time(latlon_location):
     return raw_data["dt"] + raw_data["timezone"]
 
 
+def get_hourly_data(json_data):
+    # Collect the hourly data into Python srtuctures
+    timezone_offset = json_data["city"]["timezone"]
+    hourly_data = [[{} for h in range(8)] for d in range(5)]
+    day_number = 0
+    datetime = time.localtime(json_data["list"][0]["dt"] + timezone_offset)
+    previous_date = datetime.tm_mday
+    # Gather data throughout the days
+    for data in json_data["list"]:
+        datetime = time.localtime(json_data["list"][0]["dt"] + timezone_offset)
+        date = datetime.tm_mday
+        if date != previous_date:
+            previous_date = date
+            day_number = day_number + 1
+            if day_number > 4:
+                break
+        hour = datetime.tm_hour // 3
+        hourly_data[day_number][hour]["weather"] = data["weather"]
+        hourly_data[day_number][hour]["temp"] = data["main"]["temp"]
+        hourly_data[day_number][hour]["humidity"] = data["main"]["humidity"]
+        hourly_data[day_number][hour]["wind_speed"] = data["wind"]["speed"]
+    return hourly_data
+
+
+def mode(list):
+    return max(set(list), key=list.count)
+
+
+def get_daily_summary(hourly_data):
+    # Get overview data from hourly data
+    daily_data = [{} for d in range(5)]
+    for dd in range(5):
+        daily_data[dd]["tmax"] = -inf
+        daily_data[dd]["tmin"] = inf
+        for hh in range(8):
+            data = hourly_data[dd][hh]
+            if data:
+                daily_data[dd]["tmax"] = max(data["temp"],daily_data[dd]["tmax"])
+                daily_data[dd]["tmin"] = min(data["temp"],daily_data[dd]["tmax"])
+                icon[hh] = data["weather"][0]["icon"][:2]
+
+
 def get_forecast(location):
     """Use Forecast API to fetch weather data and return a "daily" forecast.
     NOTE: The data query is assumed to have been done at ~2AM local time so that
@@ -130,16 +172,17 @@ def get_forecast(location):
     if json_data["cnt"] != 40:
         raise RuntimeError("Unexpected forecast response length.")
     timezone_offset = json_data["city"]["timezone"]
-    daily_data = []
+    hourly_data = get_hourly_data(json_data)
+    daily_data = [{} for d in range(5)]
+
     # use the 12PM values from each day, access via direct indexing (slice)
+    d_idx = 0
     for data in json_data["list"][3::8]:
-        daily_data.append(
-            {
-                "dt": data["dt"] + timezone_offset,
-                "weather": data["weather"],
-                "temp": {"day": data["main"]["temp"]},
-            }
-        )
+        daily_data[d_idx]["dt"] = data["dt"] + timezone_offset
+        daily_data[d_idx]["weather"] = data["weather"]
+        daily_data[d_idx]["temp"] = {"day" : data["main"]["temp"]}
+        d_idx = d_idx + 1
+        
     # add extra data for day 0 (current day)
     daily_data[0]["sunrise"] = json_data["city"]["sunrise"] + timezone_offset
     daily_data[0]["sunset"] = json_data["city"]["sunset"] + timezone_offset
