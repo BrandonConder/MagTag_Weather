@@ -261,7 +261,7 @@ def wind_text(speedms):
 def update_banner(banner, data):
     """Update supplied forecast banner with supplied data."""
     banner[0].text = DAYS[time.localtime(data["dt"]).tm_wday][:3].upper()
-    banner[1][0] = ICON_MAP.index(data["weather"][0]["icon"][:2])
+    banner[1][0] = ICON_MAP.index(data["icon"])
     banner[2].text = temperature_text(data["temp"]["max"]) + "\n" + temperature_text(data["temp"]["min"])
 
 
@@ -277,7 +277,7 @@ def update_today(data):
         date.tm_mday,
         date.tm_year,
     )
-    today_icon[0] = ICON_MAP.index(data["weather"][0]["icon"][:2])
+    today_icon[0] = ICON_MAP.index(data["icon"])
     today_morn_temp.text = temperature_text(data["temp"]["morn"])
     today_day_temp.text = temperature_text(data["temp"]["day"])
     today_night_temp.text = temperature_text(data["temp"]["night"])
